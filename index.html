@@ -72,7 +72,7 @@ S.rev=S.rev||0;
 const DB="https://compta-rhodes-default-rtdb.europe-west1.firebasedatabase.app/compta.json";
 let dirty=0,tm;
 const st=(m,c)=>{const e=$("#st");if(e){e.textContent=m;e.style.color=c}};
-const norm=o=>{o=o||{};["staff","dep","inv","ag","arc"].forEach(k=>{o[k]=o[k]?Object.values(o[k]):[]});o.mov=[];o.sem=o.sem||"Semaine en cours";o.staff.forEach(p=>{p.d=Object.values(p.d||[2,2,2,2,2,2,2]);p.pr=p.pr||0});o.arc.forEach(a=>{a.staff=Object.values(a.staff||[])});o.rev=o.rev||0;return o};
+const norm=o=>{o=o||{};["staff","dep","inv","ag","arc"].forEach(k=>{o[k]=o[k]?Object.values(o[k]):[]});o.mov=[];o.sem=o.sem||"Semaine en cours";o.staff.forEach(p=>{p.d=Object.values(p.d||[2,2,2,2,2,2,2]);p.pr=p.pr||0});o.arc.forEach(a=>{a.staff=Object.values(a.staff||[]);a.depL=Object.values(a.depL||[]);a.inv=Object.values(a.inv||[])});o.rev=o.rev||0;return o};
 const push=async()=>{try{const r=await fetch(DB,{method:"PUT",body:JSON.stringify(S)});if(!r.ok)throw 0;dirty=0;st("● Synchronisé","#7ddc8a")}catch(e){st("● Hors ligne","#f0a0a0")}};
 const save=()=>{S.rev=Date.now();try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}dirty=1;clearTimeout(tm);tm=setTimeout(push,300)};
 const pull=async()=>{if(dirty)return;try{const r=await fetch(DB);if(!r.ok)throw 0;const j=await r.json();st("● Synchronisé","#7ddc8a");
@@ -121,7 +121,7 @@ function ag(){
  <div class="card" style="margin-top:14px"><h3 style="text-transform:capitalize;margin-bottom:10px">${sd}</h3><div class="fm"><input data-n="d" type="date" value="${sel}"><input data-n="h" type="time"><input data-n="t" placeholder="Note (patrouille, formation, réunion…)"><button class="pb" data-a="add" data-t="ag">Ajouter</button></div>${tbl(["Heure","Note",""],L.map(x=>[x.h||"—",esc(x.t),X("ag",x.i)]))}</div>
  <p class="hint">Clique sur un jour pour voir ses notes et en ajouter.</p>`}
 
-function arc(){return (S.arc.length?S.arc.slice().reverse().map(a=>{const i=S.arc.indexOf(a);return `<div class="card"><div class="top"><div><h3>${esc(a.sem)}</h3><span class="mu">Archivée le ${a.dt} · Paye ${f(a.paye)} · Dépenses ${f(a.dep)}</span></div><div><button class="gb" data-a="view" data-i="${a.id}">${open==a.id?"Masquer":"Voir le détail"}</button> ${cf("da"+i,{a:"delarc",s:"da",i},"Supprimer")}</div></div>${open==a.id?`<div style="margin-top:10px">${tbl(["Agent","Grade","Jours payés","Salaire","Prime","Total"],a.staff.map(p=>[esc(p.n),p.g,p.j,f(p.s),f(p.pr),f(p.t)]),["Total","",sum(a.staff,"j"),f(sum(a.staff,"s")),f(sum(a.staff,"pr")),f(a.paye)],[2,3,4,5])}</div>`:""}</div>`}).join(""):`<div class="card mu">Aucune semaine archivée. Utilise « Archiver la semaine » dans l’onglet Paye : la paye et les dépenses sont gardées ici, puis la nouvelle semaine repart à zéro.</div>`)}
+function arc(){return (S.arc.length?S.arc.slice().reverse().map(a=>{const i=S.arc.indexOf(a);return `<div class="card"><div class="top"><div><h3>${esc(a.sem)}</h3><span class="mu">Archivée le ${a.dt} · Paye ${f(a.paye)} · Dépenses ${f(a.dep)}</span></div><div><button class="gb" data-a="view" data-i="${a.id}">${open==a.id?"Masquer":"Voir le détail"}</button> ${cf("da"+i,{a:"delarc",s:"da",i},"Supprimer")}</div></div>${open==a.id?`<div style="margin-top:10px">${tbl(["Agent","Grade","Jours payés","Salaire","Prime","Total"],a.staff.map(p=>[esc(p.n),p.g,p.j,f(p.s),f(p.pr),f(p.t)]),["Total","",sum(a.staff,"j"),f(sum(a.staff,"s")),f(sum(a.staff,"pr")),f(a.paye)],[2,3,4,5])}<h3 style="margin:16px 0 8px">Dépenses</h3>${tbl(["Date","Catégorie","Description","Montant"],(a.depL||[]).map(x=>[x.d,x.c,esc(x.t),f(x.m)]),["Total","","",f(sum(a.depL||[],"m"))],[3])}<h3 style="margin:16px 0 8px">Inventaire à la fin de la semaine</h3>${tbl(["Article","Quantité","Seuil"],(a.inv||[]).map(x=>[esc(x.n),x.q,x.s]),null,[1,2])}</div>`:""}</div>`}).join(""):`<div class="card mu">Aucune semaine archivée. Utilise « Archiver la semaine » dans l’onglet Paye : la paye, les dépenses et l’inventaire sont gardés ici. Les présences et les dépenses repartent à zéro ; l’inventaire reste en place.</div>`)}
 
 const V={paye,dep,inv,ag,arc},TT={paye:"Paye",dep:"Dépenses",inv:"Inventaire",ag:"Agenda",arc:"Archives"};
 function draw(){save();render()}
@@ -145,7 +145,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b
   else if(t=="inv"){if(!v("n"))return;S.inv.push({n:v("n"),q:+v("q")||0,s:+v("s")||0})}
   else if(t=="ag"){if(!v("t")||!v("d"))return;S.ag.push({d:v("d"),h:v("h"),t:v("t")})}}
  else if(a=="arc"){const st=S.staff.map(p=>{const c=calc(p);return{n:p.n,g:p.g,j:c.j,s:c.s,pr:+p.pr||0,t:c.t}}),m=S.mov.reduce((s,x)=>s+(x.k=="Entrée"?x.m:-x.m),0);
-  S.arc.push({id:Date.now(),sem:S.sem,dt:td,staff:st,paye:sum(st,"t"),dep:sum(S.dep,"m"),mov:m,depL:S.dep,movL:S.mov});
+  S.arc.push({id:Date.now(),sem:S.sem,dt:td,staff:st,paye:sum(st,"t"),dep:sum(S.dep,"m"),depL:S.dep.slice(),inv:S.inv.map(x=>({...x}))});
   S.staff.forEach(p=>{p.d=[2,2,2,2,2,2,2];p.pr=0});S.dep=[];S.mov=[];S.sem="Nouvelle semaine";tab="arc"}
  (["sel","mo","now","tab","view"].includes(a)?render:draw)()});
 document.addEventListener("change",e=>{const t=e.target,c=t.dataset.c;if(!c)return;const i=+t.dataset.i;
