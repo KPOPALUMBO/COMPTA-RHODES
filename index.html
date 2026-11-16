@@ -26,7 +26,9 @@ td input:hover,td input:focus{border-color:var(--bd);background:var(--sf)}
 td select{color:#fff;font-weight:600;min-width:130px}td select option{color:#000}
 td input.pr{width:80px;text-align:right;background:var(--pr)}
 .s{width:92px;min-width:0;border:0;border-radius:4px;padding:5px 2px;font:inherit;font-weight:400;color:var(--tx);cursor:pointer}
-.c0{background:var(--ok)}.c1{background:var(--lt)}.c2{background:var(--ab)}.ck{text-align:center;white-space:nowrap}.rt{font-size:12px;cursor:pointer;opacity:.9}
+.c0{background:var(--ok)}.c1{background:var(--lt)}.c2{background:var(--ab)}.ck{text-align:center;white-space:nowrap}
+td.nm{position:sticky;left:0;z-index:1;background:var(--sf);box-shadow:1px 0 0 var(--bd)}th.nm{position:sticky;left:0;z-index:2}
+td.nm input{min-width:160px;font-size:15px;font-weight:700;color:var(--tx)}.rt{font-size:12px;cursor:pointer;opacity:.9}
 td input[type=checkbox]{width:20px;height:20px;padding:0;margin:0 2px;vertical-align:middle;accent-color:#2f9e44;cursor:pointer}.rt input[type=checkbox]{width:16px;height:16px;accent-color:#d98e1f}
 .x,.q{border:1px solid var(--bd);background:transparent;color:var(--mu);border-radius:6px;cursor:pointer;width:28px;height:28px;font:inherit}
 .x:hover{color:#c0262d;border-color:#c0262d}
@@ -43,9 +45,19 @@ td input[type=checkbox]{width:20px;height:20px;padding:0;margin:0 2px;vertical-a
 .card h3{margin:0;font:700 16px Rockwell,"Roboto Slab",Georgia,serif}
 .mu{color:var(--mu)}
 .hint{color:var(--mu);margin:10px 2px 0;font-size:12px}
+.cn{display:flex;align-items:center;gap:8px;margin-bottom:10px}.cn h2{margin:0;font:700 20px Rockwell,"Roboto Slab",Georgia,serif;flex:1;text-align:center;text-transform:capitalize}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--bd);border-left:1px solid var(--bd);background:var(--sf)}
+.ch{background:var(--hd);color:#fff;text-align:center;padding:7px;font-weight:600;border-right:1px solid var(--bd)}
+.cd{min-height:100px;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);padding:4px 6px;cursor:pointer;overflow:hidden}
+.cd.off{background:var(--bg);cursor:default}.cd:not(.off):hover{background:var(--sh)}
+.cd.today b{background:var(--ac);color:#1b1b1b;border-radius:10px;padding:1px 7px}
+.cd.sel{outline:2px solid var(--ac);outline-offset:-2px}
+.ev{font-size:11.5px;background:var(--sh);border-radius:4px;padding:2px 5px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cd:hover .ev{background:var(--bg)}
+.ev i{font-style:normal;font-weight:700}
+@media (max-width:700px){.cd{min-height:62px;padding:2px 3px}.ev{font-size:10px;padding:1px 3px}.ev i{display:block}.ch{padding:5px 0;font-size:12px}}
 </style></head>
 <body>
-<header><h1>Compta — Bureau du shérif</h1><input id="sem" data-c="sem" aria-label="Nom de la semaine"></header>
+<header><h1>Compta — Bureau du shérif</h1><span id="st" style="font-size:12px"></span><input id="sem" data-c="sem" aria-label="Nom de la semaine"></header>
 <nav id="nav"></nav>
 <main id="app"></main>
 <script>
@@ -56,7 +68,16 @@ const seed=[["Jordan Braddock","Shérif"],["Jason Vanes","UnderSheriff"],["Dany 
 const def=()=>({sem:"Semaine en cours",staff:seed.map(([n,g])=>({n,g,d:[2,2,2,2,2,2,2],pr:0})),dep:[],inv:[],ag:[],mov:[],arc:[]});
 let S,tab="paye",open=null,conf="";
 try{S=JSON.parse(localStorage.getItem(K))||def()}catch(e){S=def()}
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+S.rev=S.rev||0;
+const DB="https://compta-rhodes-default-rtdb.europe-west1.firebasedatabase.app/compta.json";
+let dirty=0,tm;
+const st=(m,c)=>{const e=$("#st");if(e){e.textContent=m;e.style.color=c}};
+const norm=o=>{o=o||{};["staff","dep","inv","ag","arc"].forEach(k=>{o[k]=o[k]?Object.values(o[k]):[]});o.mov=[];o.sem=o.sem||"Semaine en cours";o.staff.forEach(p=>{p.d=Object.values(p.d||[2,2,2,2,2,2,2]);p.pr=p.pr||0});o.arc.forEach(a=>{a.staff=Object.values(a.staff||[])});o.rev=o.rev||0;return o};
+const push=async()=>{try{const r=await fetch(DB,{method:"PUT",body:JSON.stringify(S)});if(!r.ok)throw 0;dirty=0;st("● Synchronisé","#7ddc8a")}catch(e){st("● Hors ligne","#f0a0a0")}};
+const save=()=>{S.rev=Date.now();try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}dirty=1;clearTimeout(tm);tm=setTimeout(push,300)};
+const pull=async()=>{if(dirty)return;try{const r=await fetch(DB);if(!r.ok)throw 0;const j=await r.json();st("● Synchronisé","#7ddc8a");
+ if(!j||j.rev<S.rev){push();return}
+ if(j.rev>S.rev){const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&a.type!="checkbox")return;S=norm(j);try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}render()}}catch(e){st("● Hors ligne","#f0a0a0")}};
 const $=s=>document.querySelector(s);
 const f=n=>(+n||0).toLocaleString("fr-CA",{style:"currency",currency:"CAD"});
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -69,10 +90,10 @@ const sum=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
 function paye(){
  const T={j:0,mx:0,s:0,pr:0,t:0,a:0};
  const rows=S.staff.map((p,i)=>{const c=calc(p);T.j+=c.j;T.mx+=c.mx;T.s+=c.s;T.pr+=+p.pr||0;T.t+=c.t;T.a+=c.a;
- return `<tr><td><input data-c="nm" data-i="${i}" value="${esc(p.n)}" aria-label="Nom"></td><td><select data-c="gr" data-i="${i}" style="background:${G[p.g][1]}" aria-label="Grade">${Object.keys(G).map(g=>`<option${g==p.g?" selected":""}>${g}</option>`).join("")}</select></td>${p.d.map((x,k)=>`<td class="ck c${x}"><input type="checkbox" data-c="pres" data-i="${i}" data-k="${k}" aria-label="${D[k]} présent"${x<2?" checked":""}> <label class="rt" title="Plus tard"><input type="checkbox" data-c="late" data-i="${i}" data-k="${k}" aria-label="${D[k]} plus tard"${x==1?" checked":""}${x==2?" disabled":""}>⏰</label></td>`).join("")}<td class="n">${c.j}</td><td class="n">${f(c.mx)}</td><td class="n">${f(c.s)}</td><td><input class="pr" type="number" min="0" step="5" data-c="pr" data-i="${i}" value="${p.pr}" aria-label="Prime"></td><td class="n"><b>${f(c.t)}</b></td><td class="n">${c.a}</td><td class="n">${c.pc}%</td><td>${X("staff",i)}</td></tr>`}).join("");
+ return `<tr><td class="nm"><input data-c="nm" data-i="${i}" value="${esc(p.n)}" aria-label="Nom"></td><td><select data-c="gr" data-i="${i}" style="background:${G[p.g][1]}" aria-label="Grade">${Object.keys(G).map(g=>`<option${g==p.g?" selected":""}>${g}</option>`).join("")}</select></td>${p.d.map((x,k)=>`<td class="ck c${x}"><input type="checkbox" data-c="pres" data-i="${i}" data-k="${k}" aria-label="${D[k]} présent"${x<2?" checked":""}> <label class="rt" title="Plus tard"><input type="checkbox" data-c="late" data-i="${i}" data-k="${k}" aria-label="${D[k]} plus tard"${x==1?" checked":""}${x==2?" disabled":""}>⏰</label></td>`).join("")}<td class="n">${c.j}</td><td class="n">${f(c.mx)}</td><td class="n">${f(c.s)}</td><td><input class="pr" type="number" min="0" step="5" data-c="pr" data-i="${i}" value="${p.pr}" aria-label="Prime"></td><td class="n"><b>${f(c.t)}</b></td><td class="n">${c.a}</td><td class="n">${c.pc}%</td><td>${X("staff",i)}</td></tr>`}).join("");
  const n=S.staff.length||1;
  return `<div class="bar"><button class="pb" data-a="addp">Ajouter un agent</button>${cf("clr0",{a:"clear",s:"clr"},"Tout décocher")}${cf("arc0",{a:"arc",s:"arc"},"Archiver la semaine")}<span class="mu">Coche les jours où l’agent est présent (tout est décoché au départ). Coche ⏰ s’il est arrivé plus tard : il est payé quand même.</span></div>
- <div class="w"><table><thead><tr><th>Effectif</th><th>Grade</th>${D.map(d=>`<th>${d}</th>`).join("")}<th>Jours payés</th><th>Salaire max</th><th>Salaire calculé</th><th>Prime</th><th>Total à payer</th><th>Absences</th><th>Présence</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="14" class="em">Aucun agent.</td></tr>`}</tbody>
+ <div class="w"><table><thead><tr><th class="nm">Effectif</th><th>Grade</th>${D.map(d=>`<th>${d}</th>`).join("")}<th>Jours payés</th><th>Salaire max</th><th>Salaire calculé</th><th>Prime</th><th>Total à payer</th><th>Absences</th><th>Présence</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="14" class="em">Aucun agent.</td></tr>`}</tbody>
  <tfoot><tr><td colspan="9">TOTAL</td><td class="n">${T.j}</td><td class="n">${f(T.mx)}</td><td class="n">${f(T.s)}</td><td class="n">${f(T.pr)}</td><td class="n">${f(T.t)}</td><td class="n">${T.a}</td><td class="n">${Math.round(T.j/(7*n)*100)}%</td><td></td></tr></tfoot></table></div>
  <p class="hint">Salaire calculé = salaire max × jours payés ÷ 7. Un agent « plus tard » est payé ; un absent ne l’est pas.</p>`}
 
@@ -86,14 +107,25 @@ function mov(){const e=sum(S.mov.filter(x=>x.k=="Entrée"),"m"),s=sum(S.mov.filt
 function inv(){return `<div class="fm"><input data-n="n" placeholder="Article (ex. gilets, radios, munitions)"><input data-n="q" type="number" min="0" placeholder="Quantité"><input data-n="s" type="number" min="0" placeholder="Seuil d’alerte"><button class="pb" data-a="add" data-t="inv">Ajouter l’article</button></div>`+
  tbl(["Article","Quantité","Seuil","État",""],S.inv.map((x,i)=>{const lo=x.q<=x.s;return [esc(x.n),`<button class="q" data-a="qty" data-i="${i}" data-k="-1" aria-label="Retirer 1">−</button> <b>${x.q}</b> <button class="q" data-a="qty" data-i="${i}" data-k="1" aria-label="Ajouter 1">+</button>`,x.s,lo?'<span class="out">Stock bas</span>':"OK",X("inv",i)]}),null,[1,2])}
 
-function ag(){const L=S.ag.map((x,i)=>({...x,i})).sort((a,b)=>(a.d+a.h).localeCompare(b.d+b.h));
- return `<div class="fm"><input data-n="d" type="date" value="${td}"><input data-n="h" type="time"><input data-n="t" placeholder="Événement (patrouille, formation, réunion…)"><button class="pb" data-a="add" data-t="ag">Ajouter à l’agenda</button></div>`+
- tbl(["Date","Heure","Événement",""],L.map(x=>[x.d,x.h||"—",esc(x.t),X("ag",x.i)]))}
+let cm=td.slice(0,7),sel=td;
+const JN=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"],MN=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const evs=d=>S.ag.map((x,i)=>({...x,i})).filter(x=>x.d==d).sort((a,b)=>(a.h||"").localeCompare(b.h||""));
+function ag(){
+ const [y,m]=cm.split("-").map(Number),first=new Date(y,m-1,1).getDay(),dim=new Date(y,m,0).getDate(),cells=Math.ceil((first+dim)/7)*7;
+ let g=JN.map(d=>`<div class="ch">${d}</div>`).join("");
+ for(let c=0;c<cells;c++){const n=c-first+1;if(n<1||n>dim){g+=`<div class="cd off"></div>`;continue}
+  const d=`${cm}-${String(n).padStart(2,"0")}`,E=evs(d);
+  g+=`<div class="cd${d==td?" today":""}${d==sel?" sel":""}" data-a="sel" data-d="${d}"><b>${n}</b>${E.slice(0,3).map(x=>`<div class="ev">${x.h?`<i>${esc(x.h)}</i> `:""}${esc(x.t)}</div>`).join("")}${E.length>3?`<div class="mu" style="font-size:11px">+${E.length-3} autres</div>`:""}</div>`}
+ const L=evs(sel),sd=new Date(sel+"T12:00").toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+ return `<div class="cn"><button class="gb" data-a="mo" data-k="-1" aria-label="Mois précédent">‹</button><h2>${MN[m-1]} ${y}</h2><button class="gb" data-a="mo" data-k="1" aria-label="Mois suivant">›</button><button class="gb" data-a="now">Aujourd’hui</button></div><div class="cal">${g}</div>
+ <div class="card" style="margin-top:14px"><h3 style="text-transform:capitalize;margin-bottom:10px">${sd}</h3><div class="fm"><input data-n="d" type="date" value="${sel}"><input data-n="h" type="time"><input data-n="t" placeholder="Note (patrouille, formation, réunion…)"><button class="pb" data-a="add" data-t="ag">Ajouter</button></div>${tbl(["Heure","Note",""],L.map(x=>[x.h||"—",esc(x.t),X("ag",x.i)]))}</div>
+ <p class="hint">Clique sur un jour pour voir ses notes et en ajouter.</p>`}
 
 function arc(){return (S.arc.length?S.arc.slice().reverse().map(a=>{const i=S.arc.indexOf(a);return `<div class="card"><div class="top"><div><h3>${esc(a.sem)}</h3><span class="mu">Archivée le ${a.dt} · Paye ${f(a.paye)} · Dépenses ${f(a.dep)}</span></div><div><button class="gb" data-a="view" data-i="${a.id}">${open==a.id?"Masquer":"Voir le détail"}</button> ${cf("da"+i,{a:"delarc",s:"da",i},"Supprimer")}</div></div>${open==a.id?`<div style="margin-top:10px">${tbl(["Agent","Grade","Jours payés","Salaire","Prime","Total"],a.staff.map(p=>[esc(p.n),p.g,p.j,f(p.s),f(p.pr),f(p.t)]),["Total","",sum(a.staff,"j"),f(sum(a.staff,"s")),f(sum(a.staff,"pr")),f(a.paye)],[2,3,4,5])}</div>`:""}</div>`}).join(""):`<div class="card mu">Aucune semaine archivée. Utilise « Archiver la semaine » dans l’onglet Paye : la paye et les dépenses sont gardées ici, puis la nouvelle semaine repart à zéro.</div>`)}
 
 const V={paye,dep,inv,ag,arc},TT={paye:"Paye",dep:"Dépenses",inv:"Inventaire",ag:"Agenda",arc:"Archives"};
-function draw(){save();$("#sem").value=S.sem;
+function draw(){save();render()}
+function render(){$("#sem").value=S.sem;
  $("#nav").innerHTML=Object.keys(TT).map(k=>`<button class="${k==tab?"on":""}" data-a="tab" data-t="${k}">${TT[k]}</button>`).join("");
  $("#app").innerHTML=V[tab]()}
 
@@ -105,6 +137,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b
  else if(a=="addp")S.staff.push({n:"Nouvel agent",g:"Deputy",d:[2,2,2,2,2,2,2],pr:0});
  else if(a=="del")S[t].splice(i,1);
  else if(a=="clear")S.staff.forEach(p=>p.d=[2,2,2,2,2,2,2]);else if(a=="qty")S.inv[i].q=Math.max(0,S.inv[i].q+ +k);
+ else if(a=="sel")sel=b.dataset.d;else if(a=="now"){cm=td.slice(0,7);sel=td}else if(a=="mo"){const [yy,mm]=cm.split("-").map(Number),dd=new Date(yy,mm-1+ +k,1);cm=dd.getFullYear()+"-"+String(dd.getMonth()+1).padStart(2,"0")}
  else if(a=="view")open=open==i?null:i;
  else if(a=="delarc")S.arc.splice(i,1);
  else if(a=="add"){const bx=b.closest(".fm"),v=n=>{const el=bx.querySelector(`[data-n="${n}"]`);return el?el.value.trim():""};
@@ -114,9 +147,9 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b
  else if(a=="arc"){const st=S.staff.map(p=>{const c=calc(p);return{n:p.n,g:p.g,j:c.j,s:c.s,pr:+p.pr||0,t:c.t}}),m=S.mov.reduce((s,x)=>s+(x.k=="Entrée"?x.m:-x.m),0);
   S.arc.push({id:Date.now(),sem:S.sem,dt:td,staff:st,paye:sum(st,"t"),dep:sum(S.dep,"m"),mov:m,depL:S.dep,movL:S.mov});
   S.staff.forEach(p=>{p.d=[2,2,2,2,2,2,2];p.pr=0});S.dep=[];S.mov=[];S.sem="Nouvelle semaine";tab="arc"}
- draw()});
+ (["sel","mo","now","tab","view"].includes(a)?render:draw)()});
 document.addEventListener("change",e=>{const t=e.target,c=t.dataset.c;if(!c)return;const i=+t.dataset.i;
  if(c=="nm")S.staff[i].n=t.value;else if(c=="gr")S.staff[i].g=t.value;else if(c=="pr")S.staff[i].pr=+t.value||0;else if(c=="sem")S.sem=t.value;else if(c=="pres")S.staff[i].d[+t.dataset.k]=t.checked?0:2;else if(c=="late")S.staff[i].d[+t.dataset.k]=t.checked?1:0;
  draw()});
-draw();
+render();pull();setInterval(pull,3000);
 </script></body></html>
